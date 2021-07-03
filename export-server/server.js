@@ -26,8 +26,8 @@ const phantomize = require('./phantomize.js');
 const url = require('url');
 const uuidv4 = require('uuid/v4');
 
-const hostname = 'localhost';
-const port = 3000;
+const hostname = '0.0.0.0';
+const port = process.env.PORT || 3000;
 
 // ** Preparation, step 1: **
 // Find the PhantomJS executable. It is usually located in the node_modules
@@ -168,11 +168,28 @@ const server = http.createServer(function(req, res) {
     const result = phantomize.render(body, filename, req.headers["x-image-width"], req.headers["x-image-height"]);
     if (result.success) {
       res.statusCode = 200; // 200 == OK
+
+      var s = fs.createReadStream(result.filename);
+      s.on('open', function () {
+          res.setHeader('Content-Type', 'image/png');
+          res.statusCode = 200; // 200 == OK
+          s.pipe(res);
+      });
+      s.on('end', function () {
+          res.end();
+          fs.unlinkSync(result.filename);
+      });
+      s.on('error', function () {
+          res.setHeader('Content-Type', 'text/plain');
+          res.statusCode = 404;
+          res.end('Not found');
+      });
+
     } else {
       res.statusCode = 500; // 500 == Internal Server Error
-    }
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify(result));
+    }
   });
 });
 
